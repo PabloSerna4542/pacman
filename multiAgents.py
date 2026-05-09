@@ -315,7 +315,7 @@ class NeuralAgent(Agent):
         # Factor 1: Distancia a la comida más cercana
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
-            score += 1.0 / (min_food_distance + 1)
+            score += 2.0 / (min_food_distance + 1)
         
         # Factor 2: Proximidad a fantasmas
         for ghost_state in ghost_states:
@@ -327,8 +327,8 @@ class NeuralAgent(Agent):
                 score += 50 / (ghost_distance + 1)
             else:
                 # Si no está asustado, evitarlo
-                if ghost_distance <= 2:
-                    score -= 200  # Gran penalización por estar demasiado cerca
+                if ghost_distance <= 3:
+                    score -= 300  # Gran penalización por estar demasiado cerca
         
         # Combinar la puntuación de la red con la heurística
         neural_score = 0
