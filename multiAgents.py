@@ -498,3 +498,6 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
     Útil para integrarse con la estructura de pacman.py.
     """
     return NeuralAgent(model_path)
+
+def AlphaBetaNeuralAgent(Agent):
+    pass #Aquí se junta todo
