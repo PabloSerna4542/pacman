@@ -393,10 +393,11 @@ class NeuralAgent(Agent):
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
         
+        
         # Factor 1: Distancia a la comida más cercana
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
-            score += 1.0 / (min_food_distance + 1)
+            score += 2.0 / (min_food_distance + 1)
         
         # Factor 2: Proximidad a fantasmas
         for ghost_state in ghost_states:
@@ -408,13 +409,41 @@ class NeuralAgent(Agent):
                 score += 50 / (ghost_distance + 1)
             else:
                 # Si no está asustado, evitarlo
-                if ghost_distance <= 2:
-                    score -= 200  # Gran penalización por estar demasiado cerca
+                if ghost_distance <= 3:
+                    score -= 300  # Gran penalización por estar demasiado cerca
         
-        # Factor 3
+        # Factor 3: Manejo de las cápsulas
+        capsulas=state.getCapsules()
+        if capsulas:
+            dist_min_capsula= min(manhattanDistance(pacman_pos, c) for c in capsulas)
+            for ghost_state in ghost_states:
+                ghost_pos = ghost_state.getPosition()
+                ghost_distance = manhattanDistance(pacman_pos, ghost_pos)
 
-        # Factor 4
-        
+                # Recompensa que si hay un fantasma cerca esté cerca de la cápsula
+                if ghost_distance<=5 and ghost_state.scaredTimer == 0:
+                    score+= 30 / (dist_min_capsula+1)
+                
+                    # Recompensa mucho más grande si el fantasma está muy cerca y está al lado de la cápsula
+                    if ghost_distance<=3 and dist_min_capsula<=1:
+                        score+= 150 / (dist_min_capsula+1)
+                    
+                    # Castiga si el fantasma está cerca y no está cerca de una cápsula.
+                    if dist_min_capsula >= 5:
+                        score -= 40
+
+        # Factor 4: Penalizar según la cantidad de comida restante
+        lista_comida=state.getFood().asList()
+        comida_restante=len(lista_comida)
+
+        # Penaliza en función a la cantidad de comida restante
+        score-= 3*comida_restante
+
+        # Penaliza en función a la distancia media a toda la comida, incentiva a que se mueva a zonas con comida
+        if lista_comida:
+            dist_media = sum(manhattanDistance(pacman_pos, f) for f in lista_comida) / len(lista_comida)
+            score -= 0.5 * dist_media
+
         # Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
