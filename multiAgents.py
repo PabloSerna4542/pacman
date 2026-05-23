@@ -449,6 +449,26 @@ class NeuralAgent(Agent):
         for i, action in enumerate(self.idx_to_action.values()):
             if action in legal_actions:
                 neural_score += probabilities[i] * 100
+
+        # Cuanto más cerca esté del fantasma asustado, más puntos gana
+        for ghost_state in ghost_states:
+            if ghost_state.scaredTimer > 0:
+                dist = manhattanDistance(pacman_pos, ghost_state.getPosition())
+                score += 100.0 / (dist + 1)
+        
+        # Si hay cápsulas en el mapa, premiamos estar cerca de ellas.
+        capsules = state.getCapsules()
+        if capsules:
+            min_capsule_dist = min(manhattanDistance(pacman_pos, c) for c in capsules)
+            score += 15.0 / (min_capsule_dist + 1)
+
+        # --- Nueva función propia ---
+        # Si Pacman solo tiene 1 acción legal y hay un fantasma cerca, penalizamos.
+        if len(state.getLegalActions(0)) <= 2:
+            for ghost_state in ghost_states:
+                if ghost_state.scaredTimer == 0:
+                    if manhattanDistance(pacman_pos, ghost_state.getPosition()) <= 2:
+                        score -= 500
         
         return score + neural_score
 
@@ -528,5 +548,59 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
     """
     return NeuralAgent(model_path)
 
-def AlphaBetaNeuralAgent(Agent):
-    pass #Aquí se junta todo
+# --- Nuevo Alfa-Beta ---
+class AlphaBetaNeuralAgent(MultiAgentSearchAgent):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.neural_agent = NeuralAgent()
+
+    def getAction(self, gameState):
+        def maxValue(state, depth, alpha, beta):
+            if state.isWin() or state.isLose() or depth == self.depth:
+                return self.neural_agent.evaluationFunction(state)
+            
+            v = float("-inf")
+
+            for action in state.getLegalActions(0):
+                v = max(v, minValue(state.generateSuccessor(0, action), depth, 1, alpha, beta))
+                if v > beta:
+                    return v
+                
+                alpha = max(alpha, v)
+
+            return v
+
+        def minValue(state, depth, agentIdx, alpha, beta):
+            if state.isWin() or state.isLose():
+                return self.neural_agent.evaluationFunction(state)
+            
+            v = float("inf")
+
+            nextIdx = (agentIdx + 1) % state.getNumAgents()
+            for action in state.getLegalActions(agentIdx):
+                succ = state.generateSuccessor(agentIdx, action)
+                if nextIdx == 0:
+                    v = min(v, maxValue(succ, depth + 1, alpha, beta))
+                else: 
+                    v = min(v, minValue(succ, depth, nextIdx, alpha, beta))
+
+                if v < alpha: 
+                    return v
+                
+                beta = min(beta, v)
+
+            return v
+
+        alpha = float("-inf")
+        beta = float("inf")
+        score = float("-inf")
+
+        bestAction = Directions.STOP
+        for action in gameState.getLegalActions(0):
+            v = minValue(gameState.generateSuccessor(0, action), 0, 1, alpha, beta)
+            if v > score:
+                score, bestAction = v, action
+                
+            alpha = max(alpha, score)
+
+        return bestAction
