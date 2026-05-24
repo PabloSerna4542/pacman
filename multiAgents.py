@@ -550,57 +550,94 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
 
 # --- Nuevo Alfa-Beta ---
 class AlphaBetaNeuralAgent(MultiAgentSearchAgent):
-    def __init__(self, **kwargs):
+    def __init__(self, w_heuristic=0.5, w_neural=0.5, **kwargs):
         super().__init__(**kwargs)
+        self.w_heuristic = w_heuristic
+        self.w_neural = w_neural
         self.neural_agent = NeuralAgent()
 
+    def evaluation_combined(self, state):
+        trad_score = self.evaluationFunction(state)
+        neural_score = self.neural_agent.evaluationFunction(state)
+
+        return self.w_heuristic * trad_score + self.w_neural * neural_score
+
     def getAction(self, gameState):
-        def maxValue(state, depth, alpha, beta):
+
+        def alphabeta(agentIndex, depth, state, alpha, beta):
+            # Caso final
             if state.isWin() or state.isLose() or depth == self.depth:
-                return self.neural_agent.evaluationFunction(state)
+                return self.evaluation_combined(state)
+
+            # Pacman (MAX)
+            if agentIndex == 0:
+                return maxValue(agentIndex, depth, state, alpha, beta)
+
+            # Fantasmas (MIN)
+            else:
+                return minValue(agentIndex, depth, state, alpha, beta)
+
+        def maxValue(agentIndex, depth, state, alpha, beta):
             
             v = float("-inf")
+            legal = state.getLegalActions(agentIndex)
 
-            for action in state.getLegalActions(0):
-                v = max(v, minValue(state.generateSuccessor(0, action), depth, 1, alpha, beta))
+            if not legal:
+                return self.evaluation_combined(state)
+
+            for action in legal:
+                succ = state.generateSuccessor(agentIndex, action)
+                score = alphabeta(1, depth, succ, alpha, beta)
+                v = max(v, score)
+
                 if v > beta:
-                    return v
-                
+                    return v 
+
                 alpha = max(alpha, v)
 
             return v
 
-        def minValue(state, depth, agentIdx, alpha, beta):
-            if state.isWin() or state.isLose():
-                return self.neural_agent.evaluationFunction(state)
-            
+        def minValue(agentIndex, depth, state, alpha, beta):
+    
             v = float("inf")
 
-            nextIdx = (agentIdx + 1) % state.getNumAgents()
-            for action in state.getLegalActions(agentIdx):
-                succ = state.generateSuccessor(agentIdx, action)
-                if nextIdx == 0:
-                    v = min(v, maxValue(succ, depth + 1, alpha, beta))
-                else: 
-                    v = min(v, minValue(succ, depth, nextIdx, alpha, beta))
+            legal = state.getLegalActions(agentIndex)
 
-                if v < alpha: 
-                    return v
-                
+            if not legal:
+                return self.evaluation_combined(state)
+
+            nextAgent = agentIndex + 1
+            nextDepth = depth
+
+            if nextAgent == state.getNumAgents():
+                nextAgent = 0
+                nextDepth = depth + 1
+            
+            for action in legal:
+                succ = state.generateSuccessor(agentIndex, action)
+                score = alphabeta(nextAgent, nextDepth, succ, alpha, beta)
+                v = min(v, score)
+
+                if v < alpha:
+                    return v  
+
                 beta = min(beta, v)
 
             return v
 
         alpha = float("-inf")
         beta = float("inf")
-        score = float("-inf")
+        best_score = float("-inf")
 
         bestAction = Directions.STOP
         for action in gameState.getLegalActions(0):
-            v = minValue(gameState.generateSuccessor(0, action), 0, 1, alpha, beta)
-            if v > score:
-                score, bestAction = v, action
-                
-            alpha = max(alpha, score)
+            succ = gameState.generateSuccessor(0, action)
+            score = alphabeta(1, 0, succ, alpha, beta)
+
+            if score > best_score:
+                best_score = score
+                bestAction = action
+
+            alpha = max(alpha, best_score)
 
         return bestAction
