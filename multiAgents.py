@@ -449,26 +449,6 @@ class NeuralAgent(Agent):
         for i, action in enumerate(self.idx_to_action.values()):
             if action in legal_actions:
                 neural_score += probabilities[i] * 100
-
-        # Cuanto más cerca esté del fantasma asustado, más puntos gana
-        for ghost_state in ghost_states:
-            if ghost_state.scaredTimer > 0:
-                dist = manhattanDistance(pacman_pos, ghost_state.getPosition())
-                score += 100.0 / (dist + 1)
-        
-        # Si hay cápsulas en el mapa, premiamos estar cerca de ellas.
-        capsules = state.getCapsules()
-        if capsules:
-            min_capsule_dist = min(manhattanDistance(pacman_pos, c) for c in capsules)
-            score += 15.0 / (min_capsule_dist + 1)
-
-        # --- Nueva función propia ---
-        # Si Pacman solo tiene 1 acción legal y hay un fantasma cerca, penalizamos.
-        if len(state.getLegalActions(0)) <= 2:
-            for ghost_state in ghost_states:
-                if ghost_state.scaredTimer == 0:
-                    if manhattanDistance(pacman_pos, ghost_state.getPosition()) <= 2:
-                        score -= 500
         
         return score + neural_score
 
